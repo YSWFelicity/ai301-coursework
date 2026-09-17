@@ -30,10 +30,4 @@ else in the rubric applies as written.
 
 ## Your fit profile
 
-<!-- YOU write this part: a few sentences about you. What languages and
-tools you have actually used, what you want to get better at, anything
-you want to avoid. The skill uses this only to RANK the issues your
-rubric accepts, never to change a verdict: fit cannot rescue an issue
-your rubric rejects, and cannot sink one it accepts. -->
-
-(Write a few sentences here.)
+I have experience with Java, Python, JavaScript, React, and Spring Boot. I have also worked with Git, GitHub, REST APIs, and PostgreSQL. I want to improve my software engineering skills and get more experience contributing to existing codebases. I prefer issues with a clear and limited scope that I can understand and test within a reasonable amount of time. I want to avoid issues that require deep knowledge of a large codebase or major architectural changes.
