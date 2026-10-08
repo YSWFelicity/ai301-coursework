@@ -2,60 +2,46 @@
 
 Path: `beat-1-sandbox/unit-4/pull-request.md`
 
-Record of the pull request you opened against the Path Review repo, and of the evaluation
-runs that produced `eval-run.txt`. This file is graded at the path above; a copy kept
-anywhere else in the repository is not read.
-
-Complete every labelled field below. Each is graded on its own; content placed under the wrong
-label is not graded.
-
----
-
 ## Your pull request
 
 **Pull request**
 
-[Link to the pull request you opened. It must be the pull request's own page on the Path
-Review repo, not your fork's branch page.]
+https://github.com/codepath/pathreview-ai301-fa26-s3/pull/112
 
 **Branch**
 
-[The name of the branch the pull request comes from, exactly as it appears in your fork.
-The naming shape is a type prefix, then the issue number, then a short description. **The
-issue number in the branch name must be the number of the issue the pull request fixes** —
-a name carrying any other number does not satisfy this field.]
+`docs/73-align-openrouter-env-example`
 
 ## Eval iterations
 
-Answer all four sections. Quote source text directly; paraphrase does not satisfy these
-fields.
-
 **Run history**
 
-[The agreement score of each run you did, in order. A single run is a complete answer if
-only one run occurred. **The last score in your list must match the agreement line in the
-`eval-run.txt` you committed** — that file is the record of your final run.]
+My initial full evaluation scored 15/20. After reviewing the results, I revised the Test evidence check because it was too strict about requiring complete raw terminal logs. I then ran targeted evaluations, which scored 11/11, followed by another full evaluation that scored 19/20.
+
+Final full-run agreement: **19/20 scored items (bar: 18/20: PASS)**. This matches the submitted `eval-run.txt`.
 
 **Package analysis**
 
-[Pick one scored package (`pkg-01` through `pkg-20` — the four `calib-` packages are never
-scored). Name it by id, say what your rubric decided and what the gold label said, and
-explain why your rubric read it that way.]
+I selected `pkg-08`, a clear-accept package. The gold label was `accept`, but my rubric returned `reject` in the final evaluation. The evaluation reported failures in Description accuracy and Reviewer guidance.
+
+This suggests that the evaluator interpreted some information in the PR description as insufficient or inaccurate. Although the package was intended to be acceptable, my rubric still rejected it. This is a false rejection and shows that the evaluator may apply the description requirements too strictly in some cases.
 
 **Check rationale**
 
-[Quote one check from the `rubric.md` you uploaded to `tools/pr-precheck/`, exactly as it reads now.
-Then say why it reads that way — what you revised to get there, or what you rejected in
-favour of it.]
+I revised the Test evidence check to use the following rule from my current `rubric.md`:
+
+"Direct before-and-after output, meaningful test assertions, and specific reported suite results can collectively establish sufficient verification; full raw terminal logs are not mandatory for every supporting check."
+
+I chose this wording because my initial rubric placed too much emphasis on complete raw test logs. A PR can provide meaningful verification through observable behavior, specific test results, and honest disclosures even when every supporting test does not include its full terminal output.
+
+However, the revised check still rejects missing verification of essential behavior, vague testing claims, and contradictions between reported results and the PR description. This balances evidence quality with practical review requirements.
 
 **Trade-offs**
 
-[Every check gives something up. Any one of these is a complete answer: a package whose
-result it changes, a canary you re-ran with `--only`, a case you accept it will miss, or a
-stated reason nothing changed elsewhere. "Nothing changed, and here is how I know" earns
-the point in full when the reason follows.]
+The revised Test evidence check allows some PRs to pass without complete raw logs for every supporting test. This makes the rubric less likely to reject valid submissions solely because of documentation format. However, it also means the evaluator must judge whether reported results are sufficiently specific and credible.
 
----
+I tested this change with targeted evaluations before running the complete evaluation again. The targeted evaluations scored 11/11, and the final full run improved from 15/20 to 19/20.
 
-Related paths: `eval-run.txt` in this directory; your skill's files in
-`tools/pr-precheck/`.
+The final run still rejected all four not-tested packages, showing that the revised check did not simply accept submissions without meaningful test evidence.
+
+The remaining disagreement on `pkg-08` also shows that the rubric is not perfect. Its Description accuracy requirement may still be too strict in some acceptable cases.
