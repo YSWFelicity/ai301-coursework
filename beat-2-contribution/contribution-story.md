@@ -55,10 +55,9 @@ happened; these entries are the toolkit's own timeline.
 All four entries are graded. Keep every heading below, and fill each
 one in the week it belongs to.
 
-**Unit 5: [one line on the tool work]**
+**Unit 5: Building and Refining an Open-Source Issue Scout**
 
-[2-4 sentences: what you built (the scout, your strategy), what broke
-or fell short, what changed because of it.]
+I built an Issue Scout using a personalized fit profile and GitHub search strategies to identify beginner-friendly issues related to Python, Java, and backend development. During the initial scan, I noticed that the search results were heavily concentrated in a few repositories, so I added a ranking rule to limit the number of candidates from each repository. I also discovered that some promising issues already had open pull requests, even when they had no assignees or comments. This experience showed me the importance of checking claim signals and evaluating issue scope before choosing an open-source contribution.
 
 **Unit 6: [one line on the tool work]**
 
