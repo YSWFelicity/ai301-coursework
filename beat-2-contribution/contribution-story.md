@@ -11,7 +11,7 @@ files and no evidence uploads are part of Assignment 5.
 **Student:** Yingshu Wang
 **GitHub Username:** YSWFelicity
 **Issue:** https://github.com/patrickballard/wheelgap/issues/26
-**Pull Request:** [Not opened yet]
+**Pull Request:** https://github.com/patrickballard/wheelgap/pull/45
 
 One repository, built across units 5 to 8, telling the whole story of your real
 contribution. Fill it as you work, not at the end — the sections below ask for evidence that
@@ -62,10 +62,9 @@ I built an Issue Scout using a personalized fit profile and GitHub search strate
 
 I installed Voice Guard and connected it to Claude Code to check outgoing GitHub comments against my voice guide. During the wiring test, the guard successfully blocked a GitHub comment command without a readable message body. I also updated the Issue Scout rubric with a scope-feasibility check and installed the broader scopes for Repro Check and Plan Check. My first claim draft was rejected because it promised an implementation before I had investigated the code, so I revised it to focus on investigation and a realistic progress update. The revised draft passed Repro Check and was successfully posted to wheelgap Issue #26. Before reproducing, I ran a scoped orientation of only the wheelgap subsystem my issue touches (`check.py`, `cli.py`, and the `--explain` tests and fixtures) and saved the conventions, build and test commands, and AI policy in a `CLAUDE.local.md` file, which is listed in `.git/info/exclude` so it stays out of Git and will never be committed upstream.
 
-**Unit 7: [one line on the tool work]**
+**Unit 7: Building a ship manifest and keeping it current through an upstream rebase**
 
-[2-4 sentences: the ship-gate and your gate manifest. What it produced
-on your real branch, what fought you, what changed because of it.]
+I wrote a ship manifest (`ship-manifest.md`) listing the checks wheelgap's CONTRIBUTING.md requires before a PR, using `ruff format --check .` instead of `ruff format .` so the gate doesn't modify files. On my branch the format, lint, and test checks passed (133 passed, 1 skipped), but upstream had moved eight commits ahead, including a 0.3.0 release and a new mypy requirement in CONTRIBUTING.md and CI (#42), so the manifest was already out of date. I committed my change, rebased onto `upstream/main` (`e1432cb`), resolved small conflicts in `CHANGELOG.md` and `tests/test_explain.py`, added `uv run --group dev mypy` to the manifest as a required check, and re-ran everything: format, lint, and mypy are clean, and the suite gives 161 passed, 1 skipped. I then ran the Ship-Gate checker by hand on commit `7253546` against `upstream/main`. Before the run I removed a title line from the top of `pr_draft.md` so the file held only the PR body, and I passed `--base upstream/main` because my local `main` was still at the old baseline. The gate returned PASS: all four manifest checks were ok, and my pr-precheck accepted on all six rubric checks, noting only that my `plan.md` status line was stale. I fast-forwarded my local `main` to `upstream/main`, pushed the branch to my fork with a normal push, and ran `gh pr create` through Claude Code. The Ship-Gate hook honored the manual pass (same commit, base, title, body, manifest, plan, and evidence), my voice guard let the description through, and PR #45 opened.
 
 **Unit 8: [one line on the tool work]**
 
@@ -181,7 +180,7 @@ From the wheelgap repository root:
 
 **Reproduction Evidence**
 
-- **Commit showing reproduction:** Pending. I have not pushed a reproduction commit to my fork yet, so there is no link to give.
+- **Commit showing reproduction:** I did not push a separate reproduction commit. The reproduction is re-run as regression tests in the fix commit [`7253546`](https://github.com/patrickballard/wheelgap/pull/45/commits/72535462a973f7b2a6173cbf3fbe37e30c0f57d4) (for example `test_cli_explain_via_for_the_original_report`, which runs my original `-p 3.12 -t win-amd64` command).
 - **Screenshots/logs:** The text output excerpt in step 2 above, and my local report `repro-draft.md` in the wheelgap working copy (not committed).
 - **My findings:** The issue reproduces as described: the gap is reported, but no dependency path is shown in either text or JSON output. The cause is in `reachable()` in `src/wheelgap/check.py`, which returns only a set of reachable package indexes and keeps no parent information, so `Row`, `render_explain()`, and `report_json()` have no path to display. The traversal is depth-first, so even with parents recorded it would not guarantee the shortest path; a BFS that records each package's parent would.
 
@@ -200,93 +199,190 @@ From the wheelgap repository root:
 
 **Analysis**
 
-[Your analysis of the root cause: what is causing the issue, traced
-to the files and functions involved.]
+The missing `via:` path comes from how the graph walk works and from what `Row` can hold:
+
+- `reachable(source, target)` in `src/wheelgap/check.py:176` walks the uv.lock graph with a stack (`stack.pop()`), so the walk is depth-first. It returns `set[int]`, the indexes of the packages installed on that target, and keeps no record of how it reached each one. Even if it recorded parents, a depth-first walk can reach a package along a longer path first, so the recorded path would not always be the shortest.
+- `check()` (`check.py:211`) calls `reachable()` once per target and only asks `i in installed[t]`, so the path information is lost there. `Row` (`check.py:30`) holds only `package` and `results: dict[Target, Status]`, so there is nowhere to store a path.
+- `render_explain()` (`src/wheelgap/cli.py:237`) and `report_json()` (`cli.py:258`) can only show what `Row` carries, so neither can print a path.
+- `parse_uv_lock()` (`src/wheelgap/sources.py:95-97`) adds `[manifest].dependency-groups` entries to `source.root_edges` but drops the group name. A package reached that way has no parent package, so without the group name there is nothing to put at the start of its path. This answers the open question about dev-group roots from my reproduction.
+- Only uv.lock inputs have a graph (`source.edges is not None`). Every other input uses `applies()` with package markers, so there is no path to show for them.
 
 **Proposed Solution**
 
-[High-level description of your fix approach, and what you are
-deliberately NOT changing.]
+Following the issue and the maintainer's comment:
+
+1. **BFS shortest paths.** Replace the stack in `reachable()` with a `collections.deque` and `popleft()`, seeded with `roots` and then the `root_edges` targets (a multi-source BFS). Each package's parent is recorded when it is first added to `seen`, so the first path found is a shortest one.
+2. **Per-target parents.** Markers can send the walk down different branches on different targets, so `reachable()` returns `dict[int, int | str | None]` (package index → parent) and still runs once per target. A dict keeps the existing `i in installed[t]` check working. `Row` gets `via: dict[Target, list[str]]`, filled only for targets where the package is needed and only when the source has a graph.
+3. **Dependency group roots.** `Source` gets `root_groups: dict[int, str]` (root edge index → group name), filled by `parse_uv_lock()`. A path that starts at a group root begins with a label, following the maintainer's example: `via: (dev group) → pytest`. Because the field has a default, code and tests that build a `Source` directly don't change.
+4. **Text output.** `render_explain()` prints `  via: demo → fastlib → nativeext` under each target's header, before the rejected wheels, only when the path has at least two entries.
+5. **JSON output.** The issue's example is a flat array, but a flat array would have to pick one target's path and misreport the others when targets disagree. Putting the path inside `rejected[label]` would turn a list into an object and break existing consumers, and switching between an array and an object depending on the input is worse for consumers than either fixed shape. I chose a new sibling key, `"via": {label: [names]}`, built exactly like `rejected`: it appears only with `--explain`, covers the same gap targets, and each value is the issue's flat array unchanged. Non-uv inputs get `"via": {}`. Unlike the text line, JSON includes a one-entry path when it is known, so a consumer can tell a direct requirement apart from "no graph". I will point this choice out in the PR description so the maintainer can ask for the flat form instead.
+
+What I am deliberately **not** changing:
+
+- The `Edge` tuple and `_uv_edges()`. A project's own `[package.dev-dependencies]` stays merged into its edges, so the fixture's `devtool` shows as `demo → devtool`. Labelling those would mean changing `Edge`, which other tests depend on. Only manifest-level group roots get a `(group)` label.
+- Extras in names. `_uv_edges()` doesn't keep extras, so the path shows plain names (`uvicorn`, not `uvicorn[standard]`).
+- Paths for non-uv inputs (pylock, poetry, pdm, Pipfile, requirements). There is no graph, so the line is left out.
+- The table output, exit codes, and the `--explain` flag itself. No new flag is added.
+- All-paths output. Only one shortest path is shown per package and target.
 
 **Implementation Plan**
 
-1. [Modify file X to do Y]
-2. [Add or change Z]
-3. [Update tests]
+1. `src/wheelgap/sources.py`: add `root_groups: dict[int, str]` to `Source`, and record each group name in `parse_uv_lock()`.
+2. `src/wheelgap/check.py`, `reachable()`: switch to BFS with `deque`, record the parent at first discovery (`int` for a package, `str` for a group root edge, `None` for a root or requirement), return `dict[int, int | str | None]`, and update the docstring.
+3. `src/wheelgap/check.py`: add a `_path(source, parents, i) -> list[str]` helper and `via: dict[Target, list[str]]` on `Row`; in `check()`, set `row.via[t]` when the source has a graph and the package is needed on `t`.
+4. `src/wheelgap/cli.py`: print the `via:` line in `render_explain()` when the path has two or more entries, and add the `via` object in `report_json()` under `--explain`.
+5. `tests/fixtures/uvproj/uv.lock`: as the maintainer suggested, add one transitive package. `fastlib` depends on a new sdist-only `nativeext 0.3`, giving the path `demo → fastlib → nativeext`. I checked the other tests that use `uvproj` (`test_cli.py`, `test_dockerfile.py`, `test_sources.py`), and the new package doesn't break them.
+6. Tests, all offline with fixtures or in-code `Source` objects:
+   - `tests/test_check.py`: `test_reachable_shortest_path` (a graph where the old stack walk would record a longer path), `test_via_differs_per_target` (a Windows-only branch), `test_via_from_dependency_group`, and extensions to `test_uv_lock_graph` and `test_markers_on_packages`.
+   - `tests/test_sources.py`: a small uv.lock in `tmp_path` with a `dev` dependency group, asserting `root_groups == {0: "dev"}`.
+   - `tests/test_explain.py`: the `via:` text line for both `nativeext` and my original reproduction (`via: demo → winonly`), no `via:` for a non-uv input, the JSON `via` object matching the `rejected` keys, and no `via` key without `--explain`.
+7. `README.md`: add a `via:` line and one sentence to the `--explain` example. `CHANGELOG.md`: add an entry under `## Unreleased`, leaving the credit line to the maintainer as recent history shows.
+8. Before opening the PR: run `ruff format`, `ruff check`, and `pytest`, then rerun both reproduction commands and compare against `repro-draft.md`. The PR description will include `Closes #26` and the JSON-shape rationale.
 
-[Record deviations here as they happen: what changed mid-build and
-why. A recorded deviation is honest work; silent drift is not.]
+**Deviations** (recorded in `plan.md` as they happened):
+
+1. **JSON `via`: a detour to a flat array, then back to keyed by target on the maintainer's answer.** Plan Check accepted the plan above but flagged that the keyed object went against the issue's flat-array example, so I asked on the thread before building the JSON ([my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the issue's flat array, using the first gap target's path when targets disagreed and leaving the key out when no path was known. The maintainer then answered "keyed by target please, like `rejected`", because a flat array would hide a package that comes in by different routes on different platforms. They also asked for the same targets as `rejected` (gap targets only, leaving out a target with no path) and the same `(dev group)` label as the text line. Plan Check rejected the flat-array version of the plan on the conventions check, so I switched `report_json()` back to the keyed form and updated its tests, the README, the CHANGELOG and `plan.md`. The BFS, `Row.via` and the text output were already per target, so they did not change. The re-graded plan was accepted.
+2. **A JSON test for dependency-group labels.** The maintainer's request that JSON paths start with the same `(dev group)` label needed no code change, because one helper builds the path for both outputs. I added `test_json_explain_via_from_dependency_group` to pin it.
+3. **Test names and layout.** The shortest-path test is `test_via_is_a_shortest_path` rather than `test_reachable_shortest_path`. The uvproj path assertions went into a new `test_uv_lock_via` instead of extending `test_uv_lock_graph`, so status and path failures are reported separately. I added `test_via_from_plain_requirement` for packages reached from a top-level requirement, and the group-names test in `test_sources.py` uses two groups plus a plain requirement (`root_groups == {0: "dev", 1: "docs"}`).
+4. **Helper renamed** from `_path()` to `dependency_path()`, a clearer name next to `reachable()`. No behaviour difference.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code, used to trace the code path from `parse_uv_lock()` through `reachable()` and `check()` to `render_explain()` and `report_json()`, and to draft a written plan (`plan.md`, kept local and excluded from Git) from the issue, the maintainer's comment, and my reproduction findings.
+- What it produced: A plan with a line-referenced root-cause analysis, a five-part solution (BFS, per-target parents, group-root labels, text line, JSON key), an explicit "not changing" list, a twelve-step implementation and test plan, and a comparison of four JSON shapes with the reason for the one I chose.
+- Difficulties: The issue's own JSON example (a flat array) conflicts with the maintainer's point that paths differ per target, so the issue could not simply be followed literally. Tracing also turned up two gaps the reproduction had not shown: `parse_uv_lock()` drops dependency-group names, and `_uv_edges()` drops extras, so the issue's `uvicorn[standard]` example cannot be reproduced exactly without wider changes.
+- What changed: I chose the additive `via` object keyed by target and planned to flag it in the PR so the maintainer can overrule it. I added `root_groups` to cover the group-root question, left extras and `Edge` out of scope on purpose, and checked every existing test that uses the `uvproj` fixture before planning to extend it.
 
 ---
 
 ## Testing Strategy
 
-[What observable checks prove the fix: your reproduction steps re-run
-against the built change (before and after), and the repo's own test
-suite or checks with the outcome shown. "Tests pass" with nothing
-observable named is not a strategy.]
+The fix is proven by three kinds of observable checks, all run locally on my branch
+(`issue-26-explain-dependencies`). I first verified the change uncommitted on my baseline
+`56c0974`, then committed it as `7253546`, rebased onto the latest `upstream/main` (`e1432cb`), and
+re-ran everything. The full commands and output
+are in `test_evidence.md` in the wheelgap working copy (excluded from Git, like my other notes).
+
+**1. The original reproduction, before and after**
+
+I ran my two reproduction commands against an untouched copy of the baseline (extracted with
+`git archive 56c0974`) and against my branch:
+
+```bash
+uv run wheelgap tests/fixtures/uvproj -p 3.12 -t win-amd64 --explain --exit-zero
+uv run wheelgap tests/fixtures/uvproj -p 3.12 -t win-amd64 --explain --json --exit-zero
+```
+
+- Before: `winonly 311 on win-amd64: ✗ missing` followed directly by the rejected wheel, with no
+  `via:` line, and no package in the JSON had a `via` key.
+- After: the same block now has `via: demo → winonly` under the header, and the JSON entry has
+  `"via": {"win-amd64": ["demo", "winonly"]}`. The new two-step fixture package shows
+  `via: demo → fastlib → nativeext`.
+- A non-uv input (`pylockproj -t macos-arm64 --explain`) still prints no `via:` line, because it
+  has no dependency graph.
+
+**2. Focused regression tests**
+
+- **Shortest path:** `test_via_is_a_shortest_path` builds `root → [short, long]`, `short → c`,
+  `long → x → c` and expects `["root", "short", "c"]`. To check that it really guards the BFS
+  change, I ran it against an in-memory mutant of `reachable()` with `popleft()` swapped for
+  `pop()` (a depth-first walk). The mutant fails `test_via_is_a_shortest_path` and
+  `test_via_differs_per_target` because it returns the longer path through `x`; the real code
+  passes both.
+- **Per target and groups:** `test_via_differs_per_target` (a Windows-only branch gives a
+  different path on `win-amd64`), `test_via_from_dependency_group` (`["(dev group)", "tool"]`),
+  `test_via_from_plain_requirement`, `test_uv_lock_via`, and `test_uv_lock_dependency_group_names`
+  in `test_sources.py`.
+- **JSON shape:** the maintainer answered my question on the issue with "keyed by target please,
+  like `rejected`". `test_json_explain_via` checks that `via` keys equal `rejected` keys for
+  every package (with two targets, `winonly` only gets `win-amd64`),
+  `test_json_explain_via_from_dependency_group` checks that JSON uses the same `(dev group)` label
+  as the text line, and `test_json_explain_no_via_without_a_graph` checks `"via": {}` for pylock.
+
+All tests are offline and use local fixtures or a small uv.lock written to `tmp_path`, as
+CONTRIBUTING.md requires.
+
+**3. Ship-manifest checks**
+
+Post-rebase (current), on commit `7253546` over `upstream/main` `e1432cb`:
+
+| Check | Command | Result |
+|---|---|---|
+| Formatting | `uv run --group dev ruff format --check .` | `28 files already formatted` (exit 0) |
+| Lint | `uv run --group dev ruff check .` | `All checks passed!` (exit 0) |
+| Types | `uv run --group dev mypy` | `Success: no issues found in 11 source files` (exit 0) |
+| Tests | `uv run --group dev pytest` | **161 passed, 1 skipped** (exit 0) |
+
+Both original reproduction commands still give `via: demo → winonly` and
+`"via": {"win-amd64": ["demo", "winonly"]}` on the rebased commit.
+
+Pre-rebase (superseded), uncommitted on `56c0974`: formatting clean (22 files), lint clean, and
+**133 passed, 1 skipped**, up from 121 passed, 1 skipped on the untouched baseline. mypy was not a
+project check yet. Upstream added it to CONTRIBUTING.md and CI in #42 while I was working, so I added
+it to my ship manifest. The jump from 133 to 161 comes from upstream's new tests (#38–#44), not
+from my change.
+
+After the JSON change and the `plan.md` update, I re-ran Plan Check on the plan and draft comment,
+and it returned **accept** on all five required checks (diagnosis, scope, approach, test-plan,
+conventions).
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code to write the tests, run the reproduction against both the baseline and the branch, and run the mutation check; my ship manifest (`ship-manifest.md`) for the must-pass checks (now four, with mypy); and Plan Check to re-grade the plan after each deviation.
+- What it produced: `test_evidence.md`, with before/after output for both reproduction commands, the BFS regression test and its mutation result, the target-keyed JSON output, and the ship-manifest results before the rebase (format clean, lint clean, 133 passed, 1 skipped) and after it (format clean, lint clean, mypy clean, 161 passed, 1 skipped). Plan Check's final verdict was accept on all five checks.
+- Difficulties: While waiting for the maintainer, I first built the issue's flat JSON array. The maintainer then asked for target-keyed JSON, and Plan Check rejected the updated plan on the conventions check until it followed that direction. Smaller problems: one of my new tests failed at first because its helper marked the wrong package as editable (a bug in the test, not the code), and ruff flagged a test line over 120 characters. A passing test also doesn't prove it would catch the bug, so I needed a separate check for that. Upstream also moved ahead while I worked: my diff no longer applied cleanly, and mypy became a required check.
+- What changed: I switched `report_json()` to the keyed form, updated the JSON tests, README, CHANGELOG and `plan.md` Deviations, and re-ran Plan Check until it accepted. I fixed the test helper and shortened the line. I added the depth-first mutant run to show the shortest-path test fails without BFS, and used `ruff format --check` from the manifest so the formatting check doesn't change files. I rebased onto `upstream/main`, resolved the conflicts, added mypy to the manifest, and re-ran every check and both reproduction commands on the rebased commit.
 
 ---
 
 ## Implementation Notes
 
-[A running log, added to as you work. Date each entry. What you
-built, decisions you made when you made them, wrong turns included.]
+All dates are local time. The full command output is in `test_evidence.md` in my wheelgap working copy.
 
-**[Date]**
+**2026-11-08: JSON question and first build**
 
-[Entry]
+Before building the JSON output, I asked the maintainer on the issue whether `via` should be keyed by target or stay a flat array ([my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the BFS change in `reachable()`, per-target `Row.via`, `root_groups` for dependency groups, the text `via:` line, the new `nativeext` fixture package, and the tests, using the issue's flat JSON array. One new test failed at first because my test helper marked the wrong package as editable; the bug was in the test, not the code. All tests passed after I fixed it (133 passed, 1 skipped), and I checked that the shortest-path test fails if the BFS is swapped back to a stack.
 
-**[Date]**
+**2026-11-08: Switching to keyed JSON**
 
-[Entry]
+The maintainer answered "keyed by target please, like `rejected`", with two details: use the same targets as `rejected`, and the same `(dev group)` label as the text line. Plan Check rejected my updated plan on the conventions check because it still described the flat array. I changed only `report_json()`, its JSON tests, the README and the CHANGELOG, then recorded the change in `plan.md`. Ruff flagged a test line over 120 characters, which I shortened. Plan Check then accepted on all five checks.
+
+**2026-11-08: Rebase, Ship-Gate, and PR**
+
+While I prepared the PR description, upstream moved 8 commits ahead (a 0.3.0 release, Pyodide support, `--list-targets`, a Python API, and a new mypy requirement), and my diff no longer applied cleanly. I committed only the nine implementation files, rebased onto `upstream/main` (`e1432cb`), and resolved conflicts in `CHANGELOG.md` (my entry at the top of `## Unreleased`, not in 0.3.0) and `tests/test_explain.py` (kept upstream's Pyodide test and mine). `sources.py` merged automatically. I added mypy to my ship manifest. After the rebase, format, lint and mypy were clean and the suite gave 161 passed, 1 skipped. The Ship-Gate passed, and I opened PR #45.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code, used to implement the change and tests, run the reproduction and checks, and do the rebase; plus Plan Check, my ship manifest, and the Ship-Gate.
+- What it produced: The fix commit `7253546` (9 files), `test_evidence.md` with before/after output, and an updated `plan.md` with a Deviations section.
+- Difficulties: The JSON shape changed after I had already built it. Upstream moved and added mypy while I was finishing, which caused rebase conflicts. A bug in my own test helper made the first test run fail.
+- What changed: I followed the maintainer's answer and recorded the detour as a deviation. I rebased and resolved the conflicts by keeping both sides, added mypy to the manifest, and re-ran every check on the rebased commit before opening the PR.
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when opened]
+**PR Link:** https://github.com/patrickballard/wheelgap/pull/45
 
-**PR Description:** [what the PR says; much of the content above
-adapts into it]
+**PR Title:** `--explain: show the dependency path to each gap package (uv.lock)`
+
+**PR Description:** The description follows wheelgap's PR template and includes `Closes #26`. It explains that, for `uv.lock` inputs, `--explain` now shows the shortest dependency path to each gap package (for example `via: demo → winonly`). It covers the breadth-first walk in `reachable()`, per-target paths in `Row.via`, `(dev group)` labels from `Source.root_groups`, the target-keyed JSON `via` object "as discussed on the issue", the fixture change, and the README and CHANGELOG updates. It also lists what is not changed (extras, package-level dev-dependency labels, non-uv inputs, only one shortest path) and the tests. Finally, it records the local results on the rebased branch (ruff format and lint, mypy, and 161 passed, 1 skipped) and gives an AI-assistance disclosure.
+
+**Tests:** 12 new offline tests in `test_check.py`, `test_sources.py` and `test_explain.py`. They cover the shortest path (which fails if the BFS is swapped back to a stack), per-target paths, dependency-group labels in text and JSON, JSON `via` keys matching `rejected`, no path for non-uv inputs, and my original `winonly` reproduction. On the PR, all 9 upstream CI checks passed (lint, the test matrix on Linux, macOS and Windows across Python 3.11–3.14t, and the uv.lock self-check).
 
 **Maintainer Feedback:**
 
-- [Date]: [feedback received, or "none yet"; silence is a normal
-  state and costs you nothing]
-- [Date]: [how you addressed it]
+- 2026-11-08 (on the issue, before the PR): the maintainer asked for `via` keyed by target like `rejected`, with gap targets only and the same `(dev group)` label as the text output. I changed the JSON to match before opening the PR (see Deviations).
+- 2026-11-08 (on the PR): none yet.
 
-**Status:** [Awaiting review / Iterating / Merged / Closed. The
-status is a fact you record, never a grade: the PR is graded as
-opened.]
+**Status:** Open, awaiting review. Not merged.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: The Ship-Gate (`check_gate.py`), run by hand and then through its Claude Code hook on `gh pr create`, with my ship manifest and pr-precheck; my voice guard on the PR description.
+- What it produced: A manual PASS on commit `7253546`: all four manifest checks were ok, and pr-precheck accepted on all six rubric checks. On `gh pr create`, the hook honored that pass and PR #45 opened.
+- Difficulties: The gate's default base was my stale local `main`, which would have counted upstream's commits as mine. `pr_draft.md` also began with a title line that would have ended up in the PR body. pr-precheck noted that my `plan.md` status line was out of date, though it didn't change the verdict.
+- What changed: I ran the gate with `--base upstream/main`, then fast-forwarded local `main` so the hook's default base matched. I trimmed `pr_draft.md` to the body only. I left `plan.md` unchanged so the pass stayed valid, and plan to update its status line now that the PR is open.
 
 ---
 
