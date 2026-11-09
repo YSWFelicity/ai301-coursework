@@ -10,8 +10,8 @@ files and no evidence uploads are part of Assignment 5.
 **Contribution Number:** [1]
 **Student:** Yingshu Wang
 **GitHub Username:** YSWFelicity
-**Issue:** https://github.com/patrickballard/wheelgap/issues/26
-**Pull Request:** https://github.com/patrickballard/wheelgap/pull/45
+**Issue:** https://github.com/wheelgap/wheelgap/issues/26
+**Pull Request:** https://github.com/wheelgap/wheelgap/pull/45
 
 One repository, built across units 5 to 8, telling the whole story of your real
 contribution. Fill it as you work, not at the end — the sections below ask for evidence that
@@ -78,7 +78,7 @@ I used my Issue Scout to search for beginner-friendly open-source contributions 
 
 During issue selection, I learned that an open issue is not necessarily available for contribution. Some candidates already had pull requests, and another issue I considered had been claimed by someone else. I therefore checked Issue #26's comments, assignees, and linked pull requests before claiming it. I also updated my Issue Scout rubric to evaluate scope feasibility more explicitly. One limitation of the scout is that its results can become outdated quickly, so I still need to verify availability manually before posting a claim.
 
-**Claim Comment:** https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731154260
+**Claim Comment:** https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731154260
 
 **Toolkit**
 
@@ -179,7 +179,7 @@ From the wheelgap repository root:
 
 **Reproduction Evidence**
 
-- **Commit showing reproduction:** I did not push a separate reproduction commit. The reproduction is re-run as regression tests in the fix commit [`7253546`](https://github.com/patrickballard/wheelgap/pull/45/commits/72535462a973f7b2a6173cbf3fbe37e30c0f57d4) (for example `test_cli_explain_via_for_the_original_report`, which runs my original `-p 3.12 -t win-amd64` command).
+- **Commit showing reproduction:** I did not push a separate reproduction commit. The reproduction is re-run as regression tests in the fix commit [`7253546`](https://github.com/wheelgap/wheelgap/pull/45/commits/72535462a973f7b2a6173cbf3fbe37e30c0f57d4) (for example `test_cli_explain_via_for_the_original_report`, which runs my original `-p 3.12 -t win-amd64` command).
 - **Screenshots/logs:** The text output excerpt in step 2 above, and my local report `repro-draft.md` in the wheelgap working copy (not committed).
 - **My findings:** The issue reproduces as described: the gap is reported, but no dependency path is shown in either text or JSON output. The cause is in `reachable()` in `src/wheelgap/check.py`, which returns only a set of reachable package indexes and keeps no parent information, so `Row`, `render_explain()`, and `report_json()` have no path to display. The traversal is depth-first, so even with parents recorded it would not guarantee the shortest path; a BFS that records each package's parent would.
 
@@ -240,7 +240,7 @@ What I am deliberately **not** changing:
 
 **Deviations** (recorded in `plan.md` as they happened):
 
-1. **JSON `via`: a detour to a flat array, then back to keyed by target on the maintainer's answer.** Plan Check accepted the plan above but flagged that the keyed object went against the issue's flat-array example, so I asked on the thread before building the JSON ([my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the issue's flat array, using the first gap target's path when targets disagreed and leaving the key out when no path was known. The maintainer then answered "keyed by target please, like `rejected`", because a flat array would hide a package that comes in by different routes on different platforms. They also asked for the same targets as `rejected` (gap targets only, leaving out a target with no path) and the same `(dev group)` label as the text line. Plan Check rejected the flat-array version of the plan on the conventions check, so I switched `report_json()` back to the keyed form and updated its tests, the README, the CHANGELOG and `plan.md`. The BFS, `Row.via` and the text output were already per target, so they did not change. The re-graded plan was accepted.
+1. **JSON `via`: a detour to a flat array, then back to keyed by target on the maintainer's answer.** Plan Check accepted the plan above but flagged that the keyed object went against the issue's flat-array example, so I asked on the thread before building the JSON ([my question](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the issue's flat array, using the first gap target's path when targets disagreed and leaving the key out when no path was known. The maintainer then answered "keyed by target please, like `rejected`", because a flat array would hide a package that comes in by different routes on different platforms. They also asked for the same targets as `rejected` (gap targets only, leaving out a target with no path) and the same `(dev group)` label as the text line. Plan Check rejected the flat-array version of the plan on the conventions check, so I switched `report_json()` back to the keyed form and updated its tests, the README, the CHANGELOG and `plan.md`. The BFS, `Row.via` and the text output were already per target, so they did not change. The re-graded plan was accepted.
 2. **A JSON test for dependency-group labels.** The maintainer's request that JSON paths start with the same `(dev group)` label needed no code change, because one helper builds the path for both outputs. I added `test_json_explain_via_from_dependency_group` to pin it.
 3. **Test names and layout.** The shortest-path test is `test_via_is_a_shortest_path` rather than `test_reachable_shortest_path`. The uvproj path assertions went into a new `test_uv_lock_via` instead of extending `test_uv_lock_graph`, so status and path failures are reported separately. I added `test_via_from_plain_requirement` for packages reached from a top-level requirement, and the group-names test in `test_sources.py` uses two groups plus a plain requirement (`root_groups == {0: "dev", 1: "docs"}`).
 4. **Helper renamed** from `_path()` to `dependency_path()`, a clearer name next to `reachable()`. No behaviour difference.
@@ -340,7 +340,7 @@ All dates are local time. The full command output is in `test_evidence.md` in my
 
 **2026-11-08: JSON question and first build**
 
-Before building the JSON output, I asked the maintainer on the issue whether `via` should be keyed by target or stay a flat array ([my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the BFS change in `reachable()`, per-target `Row.via`, `root_groups` for dependency groups, the text `via:` line, the new `nativeext` fixture package, and the tests, using the issue's flat JSON array. One new test failed at first because my test helper marked the wrong package as editable; the bug was in the test, not the code. All tests passed after I fixed it (133 passed, 1 skipped), and I checked that the shortest-path test fails if the BFS is swapped back to a stack.
+Before building the JSON output, I asked the maintainer on the issue whether `via` should be keyed by target or stay a flat array ([my question](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731727175)). While waiting, I built the BFS change in `reachable()`, per-target `Row.via`, `root_groups` for dependency groups, the text `via:` line, the new `nativeext` fixture package, and the tests, using the issue's flat JSON array. One new test failed at first because my test helper marked the wrong package as editable; the bug was in the test, not the code. All tests passed after I fixed it (133 passed, 1 skipped), and I checked that the shortest-path test fails if the BFS is swapped back to a stack.
 
 **2026-11-08: Switching to keyed JSON**
 
@@ -361,7 +361,7 @@ While I prepared the PR description, upstream moved 8 commits ahead (a 0.3.0 rel
 
 ## Pull Request
 
-**PR Link:** https://github.com/patrickballard/wheelgap/pull/45
+**PR Link:** https://github.com/wheelgap/wheelgap/pull/45
 
 **PR Title:** `--explain: show the dependency path to each gap package (uv.lock)`
 
@@ -372,7 +372,7 @@ While I prepared the PR description, upstream moved 8 commits ahead (a 0.3.0 rel
 **Maintainer Feedback:**
 
 - 2026-11-08 (on the issue, before the PR): the maintainer asked for `via` keyed by target like `rejected`, with gap targets only and the same `(dev group)` label as the text output. I changed the JSON to match before opening the PR (see Deviations).
-- 2026-11-08 (on the PR, at merge): the maintainer merged the PR and wrote: "This was excellent: asking about the JSON shape before writing it, the test that fails if the walk goes back to depth-first, and keeping the dependency-group names that `parse_uv_lock` used to throw away. A really thorough first PR, and thanks for the AI-assistance note too." They also explained a follow-up fix: my branch predated the 0.4.0 release, so my CHANGELOG line landed under `## 0.4.0`. In commit [`f71205a`](https://github.com/patrickballard/wheelgap/commit/f71205a) ("Changelog: #45 is unreleased; credit it"), they moved it to a new `## Unreleased` section and changed the reference to `(#45, thanks @YSWFelicity)`, so it will go out in the next release. I [replied to thank them](https://github.com/patrickballard/wheelgap/pull/45#issuecomment-6732119180). No code changes were requested.
+- 2026-11-08 (on the PR, at merge): the maintainer merged the PR and wrote: "This was excellent: asking about the JSON shape before writing it, the test that fails if the walk goes back to depth-first, and keeping the dependency-group names that `parse_uv_lock` used to throw away. A really thorough first PR, and thanks for the AI-assistance note too." They also explained a follow-up fix: my branch predated the 0.4.0 release, so my CHANGELOG line landed under `## 0.4.0`. In commit [`f71205a`](https://github.com/wheelgap/wheelgap/commit/f71205a) ("Changelog: #45 is unreleased; credit it"), they moved it to a new `## Unreleased` section and changed the reference to `(#45, thanks @YSWFelicity)`, so it will go out in the next release. I [replied to thank them](https://github.com/wheelgap/wheelgap/pull/45#issuecomment-6732119180). No code changes were requested.
 
 **Status:** Merged on 2026-11-08 (20:15 Pacific Time, 2026-11-09 04:15 UTC) by the maintainer, as merge commit `1d06514`, with the CHANGELOG follow-up in `f71205a`. Issue #26 is closed by the PR's `Closes #26` line. The thread is finished: when I ran the PR monitor on it, it recommended posting nothing because I had already thanked the maintainer, and I have posted nothing further.
 
@@ -403,9 +403,9 @@ I would wait for the maintainer's answer before building the part of a feature t
 
 ## Resources Used
 
-- [wheelgap CONTRIBUTING.md](https://github.com/patrickballard/wheelgap/blob/main/CONTRIBUTING.md): the setup commands, the rules for offline tests, a CHANGELOG line under `## Unreleased`, README updates and `Closes #`, the AI-assistance policy, and later the new `uv run --group dev mypy` requirement.
-- [Issue #26 and its discussion](https://github.com/patrickballard/wheelgap/issues/26): the original proposal, including the shortest-path hint and the `via:` example.
-- [The maintainer's pointers comment](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731171071): the `collections.deque`/`popleft()` BFS with `parent[j] = i` at first discovery, keeping paths per target, the `via: (dev group) → pytest` label, leaving the line out for non-uv inputs, and adding one transitive package to the `uvproj` fixture.
-- [The maintainer's JSON clarification](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731753911), answering [my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175): `via` keyed by target like `rejected`, gap targets only, and the same `(dev group)` label as the text output.
-- [wheelgap's PR template](https://github.com/patrickballard/wheelgap/blob/main/.github/pull_request_template.md): the structure and checklist I followed for the PR #45 description.
-- The maintainer, [@patrickballard](https://github.com/patrickballard), who welcomed my claim with code pointers, answered my JSON question on the issue, reviewed and merged [PR #45](https://github.com/patrickballard/wheelgap/pull/45), and explained the CHANGELOG fix in the [merge comment](https://github.com/patrickballard/wheelgap/pull/45#issuecomment-6732093613).
+- [wheelgap CONTRIBUTING.md](https://github.com/wheelgap/wheelgap/blob/main/CONTRIBUTING.md): the setup commands, the rules for offline tests, a CHANGELOG line under `## Unreleased`, README updates and `Closes #`, the AI-assistance policy, and later the new `uv run --group dev mypy` requirement.
+- [Issue #26 and its discussion](https://github.com/wheelgap/wheelgap/issues/26): the original proposal, including the shortest-path hint and the `via:` example.
+- [The maintainer's pointers comment](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731171071): the `collections.deque`/`popleft()` BFS with `parent[j] = i` at first discovery, keeping paths per target, the `via: (dev group) → pytest` label, leaving the line out for non-uv inputs, and adding one transitive package to the `uvproj` fixture.
+- [The maintainer's JSON clarification](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731753911), answering [my question](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731727175): `via` keyed by target like `rejected`, gap targets only, and the same `(dev group)` label as the text output.
+- [wheelgap's PR template](https://github.com/wheelgap/wheelgap/blob/main/.github/pull_request_template.md): the structure and checklist I followed for the PR #45 description.
+- The maintainer, [@patrickballard](https://github.com/patrickballard), who welcomed my claim with code pointers, answered my JSON question on the issue, reviewed and merged [PR #45](https://github.com/wheelgap/wheelgap/pull/45), and explained the CHANGELOG fix in the [merge comment](https://github.com/wheelgap/wheelgap/pull/45#issuecomment-6732093613).
