@@ -191,7 +191,7 @@ From the wheelgap repository root:
 - Tool: Claude Code with the commands and notes from my local `CLAUDE.local.md`, used to run the baseline test suite and the two `--explain` commands, and to draft `repro-draft.md`.
 - What it produced: A reproduction report with the environment versions, the baseline result (121 passed, 1 skipped), the exact commands, the observed output with no `via:` line and no `via` JSON field, and the root-cause finding in `reachable()`.
 - Difficulties: uv was missing at first, so nothing ran until I installed it with Homebrew. The existing fixture is too shallow to show the interesting case (multi-step, shortest path), so the reproduction proves the missing feature but not the full expected behavior. It would also be easy to overstate the result, so I kept the expected output as an example rather than a claim about what the code does.
-- What changed: I recorded the fixture limitations explicitly, planned to add a deeper fixture when I build the fix, and left the reproduction commit link pending instead of inventing one.
+- What changed: I recorded the fixture limitations explicitly, planned to add a deeper fixture when I build the fix, and left the reproduction commit link pending instead of inventing one (I later pointed it at the regression tests in the fix commit `7253546`, which re-run my original command).
 
 ---
 
@@ -249,7 +249,7 @@ What I am deliberately **not** changing:
 **Toolkit**
 
 - Tool: Claude Code, used to trace the code path from `parse_uv_lock()` through `reachable()` and `check()` to `render_explain()` and `report_json()`, and to draft a written plan (`plan.md`, kept local and excluded from Git) from the issue, the maintainer's comment, and my reproduction findings.
-- What it produced: A plan with a line-referenced root-cause analysis, a five-part solution (BFS, per-target parents, group-root labels, text line, JSON key), an explicit "not changing" list, a twelve-step implementation and test plan, and a comparison of four JSON shapes with the reason for the one I chose.
+- What it produced: A plan with a line-referenced root-cause analysis, a five-part solution (BFS, per-target parents, group-root labels, text line, JSON key), an explicit "not changing" list, a twelve-step implementation and test plan in `plan.md` (condensed to eight steps above), and a comparison of four JSON shapes with the reason for the one I chose.
 - Difficulties: The issue's own JSON example (a flat array) conflicts with the maintainer's point that paths differ per target, so the issue could not simply be followed literally. Tracing also turned up two gaps the reproduction had not shown: `parse_uv_lock()` drops dependency-group names, and `_uv_edges()` drops extras, so the issue's `uvicorn[standard]` example cannot be reproduced exactly without wider changes.
 - What changed: I chose the additive `via` object keyed by target and planned to flag it in the PR so the maintainer can overrule it. I added `root_groups` to cover the group-root question, left extras and `Edge` out of scope on purpose, and checked every existing test that uses the `uvproj` fixture before planning to extend it.
 
@@ -390,25 +390,23 @@ While I prepared the PR description, upstream moved 8 commits ahead (a 0.3.0 rel
 
 **Technical Skills Gained**
 
-[What you learned technically, named concretely.]
+I learned how a small change in traversal order changes what a graph walk can promise. Switching `reachable()` from a stack to a `deque` with `popleft()`, and recording each package's parent at the moment it is first seen, turns "everything reachable" into "a shortest path to each package". Because markers like `sys_platform == 'win32'` send the walk down different branches on different targets, I also learned to keep paths per target rather than one per package. On the output side, I learned to design an additive JSON field: a new `via` key built like the existing `rejected`, so no existing key changes for current consumers. Finally, I learned to mutation-test my own test, by swapping `popleft()` back to `pop()` and confirming that `test_via_is_a_shortest_path` fails, so I know it actually guards the BFS change.
 
 **Challenges Overcome**
 
-[What was hard and how you solved it; point at the real events, the
-Toolkit blocks above are full of them.]
+The hardest moment was the JSON shape. The issue showed a flat array, but paths can differ per target. I asked the maintainer, built the flat version while waiting, and then switched to the keyed form when they answered, recording the detour as a deviation after Plan Check rejected the out-of-date plan. The second challenge was upstream moving eight commits ahead while I was finishing: my diff no longer applied, and mypy had become a required check. I committed only my nine files, rebased onto `upstream/main`, kept both sides in the `CHANGELOG.md` and `tests/test_explain.py` conflicts, added mypy to my ship manifest, and re-ran every check (161 passed, 1 skipped). Before the Ship-Gate run, I also caught that my stale local `main` would have counted upstream's commits as mine, and that `pr_draft.md` began with a title line that would have ended up in the PR body.
 
 **What I'd Do Differently Next Time**
 
-[Reflection on your process.]
+I would wait for the maintainer's answer before building the part of a feature that is still under discussion, instead of building a version I might throw away. I would fetch upstream at the start of implementation and again right before opening the PR, so a rebase and a new required check like mypy don't arrive at the last step. I would also check where my CHANGELOG line sits just before the merge: a release was cut between my rebase and the merge, and the maintainer had to move my entry in `f71205a`. On the positive side, I would keep asking a focused question early, since the maintainer specifically praised asking about the JSON shape before writing it.
 
 ---
 
 ## Resources Used
 
-[What actually helped, not a reading list. List things this story
-already shows you using: the doc you followed to set the environment
-up, the thread that explained the bug, the person who answered you.
-One real entry beats ten plausible ones.]
-
-- [Link to documentation that helped]
-- [Discussion, issue, or post that helped]
+- [wheelgap CONTRIBUTING.md](https://github.com/patrickballard/wheelgap/blob/main/CONTRIBUTING.md): the setup commands, the rules for offline tests, a CHANGELOG line under `## Unreleased`, README updates and `Closes #`, the AI-assistance policy, and later the new `uv run --group dev mypy` requirement.
+- [Issue #26 and its discussion](https://github.com/patrickballard/wheelgap/issues/26): the original proposal, including the shortest-path hint and the `via:` example.
+- [The maintainer's pointers comment](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731171071): the `collections.deque`/`popleft()` BFS with `parent[j] = i` at first discovery, keeping paths per target, the `via: (dev group) → pytest` label, leaving the line out for non-uv inputs, and adding one transitive package to the `uvproj` fixture.
+- [The maintainer's JSON clarification](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731753911), answering [my question](https://github.com/patrickballard/wheelgap/issues/26#issuecomment-6731727175): `via` keyed by target like `rejected`, gap targets only, and the same `(dev group)` label as the text output.
+- [wheelgap's PR template](https://github.com/patrickballard/wheelgap/blob/main/.github/pull_request_template.md): the structure and checklist I followed for the PR #45 description.
+- The maintainer, [@patrickballard](https://github.com/patrickballard), who welcomed my claim with code pointers, answered my JSON question on the issue, reviewed and merged [PR #45](https://github.com/patrickballard/wheelgap/pull/45), and explained the CHANGELOG fix in the [merge comment](https://github.com/patrickballard/wheelgap/pull/45#issuecomment-6732093613).
