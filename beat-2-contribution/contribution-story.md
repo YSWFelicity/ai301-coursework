@@ -373,16 +373,16 @@ While I prepared the PR description, upstream moved 8 commits ahead (a 0.3.0 rel
 **Maintainer Feedback:**
 
 - 2026-11-08 (on the issue, before the PR): the maintainer asked for `via` keyed by target like `rejected`, with gap targets only and the same `(dev group)` label as the text output. I changed the JSON to match before opening the PR (see Deviations).
-- 2026-11-08 (on the PR): none yet.
+- 2026-11-08 (on the PR, at merge): the maintainer merged the PR and wrote: "This was excellent: asking about the JSON shape before writing it, the test that fails if the walk goes back to depth-first, and keeping the dependency-group names that `parse_uv_lock` used to throw away. A really thorough first PR, and thanks for the AI-assistance note too." They also explained a follow-up fix: my branch predated the 0.4.0 release, so my CHANGELOG line landed under `## 0.4.0`. In commit [`f71205a`](https://github.com/patrickballard/wheelgap/commit/f71205a) ("Changelog: #45 is unreleased; credit it"), they moved it to a new `## Unreleased` section and changed the reference to `(#45, thanks @YSWFelicity)`, so it will go out in the next release. I replied to thank them. No code changes were requested.
 
-**Status:** Open, awaiting review. Not merged.
+**Status:** Merged on 2026-11-08 (20:15 local, 2026-11-09 04:15 UTC) by the maintainer, as merge commit `1d06514`, with the CHANGELOG follow-up in `f71205a`. Issue #26 is closed by the PR's `Closes #26` line.
 
 **Toolkit**
 
 - Tool: The Ship-Gate (`check_gate.py`), run by hand and then through its Claude Code hook on `gh pr create`, with my ship manifest and pr-precheck; my voice guard on the PR description.
 - What it produced: A manual PASS on commit `7253546`: all four manifest checks were ok, and pr-precheck accepted on all six rubric checks. On `gh pr create`, the hook honored that pass and PR #45 opened.
 - Difficulties: The gate's default base was my stale local `main`, which would have counted upstream's commits as mine. `pr_draft.md` also began with a title line that would have ended up in the PR body. pr-precheck noted that my `plan.md` status line was out of date, though it didn't change the verdict.
-- What changed: I ran the gate with `--base upstream/main`, then fast-forwarded local `main` so the hook's default base matched. I trimmed `pr_draft.md` to the body only. I left `plan.md` unchanged so the pass stayed valid, and plan to update its status line now that the PR is open.
+- What changed: I ran the gate with `--base upstream/main`, then fast-forwarded local `main` so the hook's default base matched. I trimmed `pr_draft.md` to the body only. I left `plan.md` unchanged so the pass stayed valid. One thing the gate couldn't catch: a release was cut between my rebase and the merge, so my CHANGELOG line ended up under the wrong version. The maintainer fixed that in `f71205a`. Next time, I'd check whether `## Unreleased` has moved right before the merge, or point it out in the PR.
 
 ---
 
