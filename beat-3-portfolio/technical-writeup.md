@@ -1,12 +1,10 @@
 # Tracing Dependency Problems: My Wheelgap Shortest-Path Contribution
 
-<!-- Reference draft for Yingshu Wang to review, personalize, and rewrite before submission. -->
-
 ## Overview
 
 For my CodePath AI301 contribution, I worked on [Wheelgap issue #26](https://github.com/wheelgap/wheelgap/issues/26). Wheelgap checks whether Python packages have compatible prebuilt distributions, called wheels, for selected Python versions and platforms. Its existing `--explain` output described why a wheel was incompatible, but did not explain which dependency introduced the affected package. That left developers with a compatibility report and another investigation to do.
 
-I extended `--explain` for `uv.lock` inputs to show a shortest dependency path, including paths that differ across platforms. The implementation connects graph traversal, dependency-group information, text output, and JSON reporting. My contribution became [PR #45](https://github.com/wheelgap/wheelgap/pull/45), which the maintainer merged on November 8, 2026, Pacific time.
+I extended `--explain` for `uv.lock` inputs to show a shortest dependency path, including paths that differ across platforms. My contribution became [PR #45](https://github.com/wheelgap/wheelgap/pull/45), which the maintainer merged on November 8, 2026, Pacific time.
 
 ## What happened
 
@@ -18,7 +16,7 @@ I reproduced the missing information using this command from the Wheelgap reposi
 uv run wheelgap tests/fixtures/uvproj -p 3.12 -t win-amd64 --explain --exit-zero
 ```
 
-My saved evidence records this block before the fix, at baseline `56c0974`:
+For readability, I present the before-and-after comparison together here, before describing the implementation. My saved evidence records this block before the fix, at baseline `56c0974`:
 
 ```text
 winonly 311 on win-amd64: ✗ missing
@@ -37,11 +35,11 @@ These excerpts come from sections 1–2 of my local `wheelgap/test_evidence.md`,
 
 Following the maintainer's guidance, I replaced the stack with a `deque` and `popleft()`, recording each package's parent when first discovered. BFS explores successive dependency levels, so the first recorded route is a shortest one. `dependency_path()` reconstructs the names. Because platform markers can change which edges apply, I kept paths per target in `Row.via`. I also preserved dependency-group names in `Source.root_groups`, allowing paths to begin with labels such as `(dev group)`.
 
-Before implementing JSON output, I [asked whether paths should be keyed by target](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731727175). While waiting, I built the issue's flat-array form. The maintainer then replied:
+Before implementing JSON output, I [asked whether paths should be keyed by target](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731727175). While waiting, I built the issue's flat-array form. During this initial implementation, a test failed because my helper marked the wrong package editable. I corrected the helper before the maintainer's JSON reply:
 
 > Good question, keyed by target please, like `rejected`:
 
-This [feedback](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731753911) addressed a real ambiguity: one package can arrive through different routes on different platforms. I revised `report_json()`, the JSON tests, README, CHANGELOG, and plan. The following field excerpt is recorded in my reproduction output with `--json` added to the command:
+The [feedback](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731753911) confirmed why a single array was insufficient: one package can arrive through different routes on different platforms. I revised `report_json()`, the JSON tests, README, CHANGELOG, and plan. The following field excerpt is recorded in my reproduction output with `--json` added to the command:
 
 ```json
 "via": {"win-amd64": ["demo", "winonly"]}
@@ -49,7 +47,7 @@ This [feedback](https://github.com/wheelgap/wheelgap/issues/26#issuecomment-6731
 
 The final structure includes gap targets with known paths and uses the same group labels as text output. It appears only with `--explain`; existing JSON keys remain unchanged.
 
-I added 12 offline tests covering shortest paths, platform differences, dependency groups, text and JSON output, and inputs without graphs. An initial failure exposed a mistake in my test helper: it marked the wrong package editable. I corrected the helper. To test the shortest-path test itself, I temporarily replaced `popleft()` with `pop()` in an in-memory mutant. Section 4 of my saved evidence records:
+I added 12 offline tests covering shortest paths, platform differences, dependency groups, text and JSON output, and inputs without graphs. The shortest-path test offers competing routes, `root → short → c` and `root → long → x → c`, and expects the shorter route through `short`. During the initial implementation, I also checked this test by temporarily replacing `popleft()` with `pop()` in an in-memory mutant. Section 4 of my saved evidence records:
 
 ```text
 FAILED tests/test_check.py::test_via_is_a_shortest_path - AssertionError: assert {Target(major...g', 'x', 'c']} == {Target(major...'short', 'c']}
@@ -65,6 +63,6 @@ Before opening the PR, I rebased onto upstream `e1432cb`, resolved conflicts, an
 
 Dependency paths require a usable `uv.lock` graph. Other input formats receive no text path and an empty JSON `via` object with `--explain`. The feature returns one shortest path per package and target, and does not preserve extras in names or label package-level dev-dependency edges.
 
-A concrete follow-up would be to discuss preserving extras with the maintainer, then add a focused fixture and test before extending the edge representation. In my workflow, I would wait for clarification before building disputed output and recheck release headings before merge: the maintainer corrected my CHANGELOG placement afterward.
+I would propose preserving extras to the maintainer; this work has not been approved. For example, a new fixture could model a dependency declared as `uvicorn[standard]`, with a test asserting that the explanation retains `[standard]` at that step. That would require preserving extra names during parsing and path reconstruction. In my workflow, I would wait for clarification before implementing an output format still under discussion and recheck release headings before merge: the maintainer corrected my CHANGELOG placement afterward.
 
-I used Claude Code to help trace code, write implementation and tests, and draft the PR description. I reviewed the changes, ran checks, and followed maintainer guidance; engineering responsibility remained mine. This portfolio text is a reference draft to rewrite in my own voice.
+I used Claude Code to help trace code, write implementation and tests, and draft the PR description. I reviewed the changes, ran the tests and reproduction commands, and checked the implementation against maintainer guidance.

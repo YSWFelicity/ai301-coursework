@@ -1,11 +1,9 @@
-<!-- Reference draft for Yingshu Wang to review, personalize, and rewrite before submission. -->
+My first merged open-source contribution added dependency tracing to Wheelgap, a tool for checking Python package compatibility. It helps developers identify which dependency brought a problematic package into their project.
 
-I contributed a dependency-tracing feature to Wheelgap, an open-source tool for checking Python package compatibility. It helps developers see which dependency introduced a package with a compatibility problem, giving them a clearer starting point for investigating it.
+As part of my CodePath AI301 coursework, I added a feature that traces the shortest chain of dependencies leading to an affected package, in reports for both people and software. The explanation accounts for differences across platforms. The maintainer merged my contribution after I added 12 automated tests and completed the project's checks.
 
-As part of my CodePath AI301 coursework, I implemented a shortest-path search and added explanations to both the readable report and its structured output. I also accounted for dependency paths that change across platforms. The maintainer merged my contribution after I added 12 automated tests and completed the project's checks.
+The maintainer's feedback helped me improve how those explanations were organized. My first version used one dependency chain across platforms. I revised it to report each platform's chain separately, because Windows and Linux can require different dependencies. I learned to clarify design questions early and update the tests and documentation alongside the code.
 
-One meaningful lesson came from feedback about the output format. I had initially built a single list, then revised it to preserve a separate path for each platform. That experience taught me to clarify design questions early and carry the answer through the code, tests, and documentation.
-
-I used Claude Code for assistance, reviewed the changes, and ran the checks myself. I'm grateful for the maintainer's guidance on my first merged contribution to Wheelgap.
+I used Claude Code for assistance, reviewed the changes, and ran the checks myself. I'm grateful for the maintainer's guidance throughout the contribution.
 
 https://github.com/wheelgap/wheelgap/pull/45
