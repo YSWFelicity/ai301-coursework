@@ -2,9 +2,7 @@
 
 ## Overview
 
-For my CodePath AI301 contribution, I worked on [Wheelgap issue #26](https://github.com/wheelgap/wheelgap/issues/26). Wheelgap checks whether Python packages have compatible prebuilt distributions, called wheels, for selected Python versions and platforms. Its existing `--explain` output described why a wheel was incompatible, but did not explain which dependency introduced the affected package. That left developers with a compatibility report and another investigation to do.
-
-I extended `--explain` for `uv.lock` inputs to show a shortest dependency path, including paths that differ across platforms. My contribution became [PR #45](https://github.com/wheelgap/wheelgap/pull/45), which the maintainer merged on November 8, 2026, Pacific time.
+For my CodePath AI301 contribution, I worked on [Wheelgap issue #26](https://github.com/wheelgap/wheelgap/issues/26). Wheelgap checks whether Python packages have compatible prebuilt distributions, called wheels, for selected Python versions and platforms. Its existing `--explain` output described why a wheel was incompatible, but did not explain which dependency introduced the affected package. That left developers with a compatibility report and another investigation to do. I extended `--explain` for `uv.lock` inputs to show a shortest dependency path, including paths that differ across platforms. My contribution became [PR #45](https://github.com/wheelgap/wheelgap/pull/45), which the maintainer merged on November 8, 2026, Pacific time.
 
 ## What happened
 
@@ -57,7 +55,7 @@ FAILED tests/test_check.py::test_via_differs_per_target - AssertionError: assert
 
 The truncation above is preserved from the saved output. The mutant chose a longer route; the real implementation passed both tests. This showed that the tests could detect the traversal regression.
 
-Before opening the PR, I rebased onto upstream `e1432cb`, resolved conflicts, and added the newly required mypy check. Formatting, lint, and types passed; the recorded suite result was 161 passed, 1 skipped. The increase from 133 to 161 included upstream tests. The maintainer merged my nine-file contribution and [praised the question, regression test, and preserved group names](https://github.com/wheelgap/wheelgap/pull/45#issuecomment-6732093613).
+Before opening the PR, I rebased onto upstream `e1432cb`, resolved conflicts, and added the newly required mypy check. Formatting, lint, and types passed; the recorded suite result was 161 passed, 1 skipped. Before the rebase, my branch had 133 passed, 1 skipped. The increase to 161 included upstream tests, not additional tests from my contribution. The maintainer merged my nine-file contribution and [praised the question, regression test, and preserved group names](https://github.com/wheelgap/wheelgap/pull/45#issuecomment-6732093613).
 
 ## Limitations and what's next
 
